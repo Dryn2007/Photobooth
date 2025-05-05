@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Styling untuk layout cetak (print) */
+@media print {
+  #photo-strip {
+    width: 100%;
+    max-width: 100%;
+    box-shadow: none;  /* Hilangkan bayangan */
+    background-color: white;  /* Background putih */
+  }
+
+  .bg-blue-600 {
+    background-color: #1d4ed8; /* Ganti warna latar belakang jika perlu */
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .border {
+    border: 1px solid #ddd; /* Sesuaikan border untuk cetakan */
+  }
+
+  .relative {
+    position: relative;
+  }
+
+  /* Atur margin dan padding saat print */
+  .p-4, .py-3, .px-4, .text-center {
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Sembunyikan elemen yang tidak diinginkan di PDF */
+  .text-gray-500, .text-gray-300 {
+    color: black;
+  }
+}
