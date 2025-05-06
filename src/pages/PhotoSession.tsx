@@ -34,7 +34,7 @@ const PhotoSession: React.FC = () => {
   };
 
   const handleComplete = () => {
-    if (currentPhotoIndex < 3) {
+    if (currentPhotoIndex < 5) {
       // Move to next photo
       setCurrentPhotoIndex(currentPhotoIndex + 1);
     } else {
@@ -71,7 +71,7 @@ const PhotoSession: React.FC = () => {
         </div>
       </header>
       
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto  py-8">
         <div className="mx-auto">
           <div className="p-6">
             <h1 className="text-2xl font-semibold mb-6 text-center">

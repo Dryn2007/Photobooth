@@ -16,6 +16,9 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { currentPhotoIndex } = usePhotobooth();
+  // Tambahkan state baru di bagian atas component
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>("");
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState<boolean>(false);
@@ -24,16 +27,22 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   const [retakeUsed, setRetakeUsed] = useState<boolean[]>([]);
 
-
-useEffect(() => {
-  startCamera();
-  setRetakeUsed(Array(4).fill(false)); // Karena hanya 4 foto
-  return () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+  // Tambahkan useEffect untuk mendapatkan daftar kamera
+  useEffect(() => {
+    async function getCameras() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setCameras(videoDevices);
+        if (videoDevices.length > 0) {
+          setSelectedCamera(videoDevices[0].deviceId);
+        }
+      } catch (err) {
+        console.error("Error getting cameras:", err);
+      }
     }
-  };
-}, []);
+    getCameras();
+  }, []);
 
 
   useEffect(() => {
@@ -60,14 +69,12 @@ useEffect(() => {
     try {
       const constraints = {
         video: {
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-          facingMode: "user",
+          width: { ideal: 944 },
+          height: { ideal: 708 },
+          deviceId: selectedCamera ? { exact: selectedCamera } : undefined
         },
       };
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = mediaStream;
 
       if (videoRef.current) {
@@ -85,7 +92,6 @@ useEffect(() => {
       console.error("Camera error:", err);
     }
   };
-
   const startCountdown = () => setIsCountingDown(true);
 
   const capturePhoto = () => {
@@ -107,31 +113,66 @@ useEffect(() => {
     audio.play().catch((e) => console.error("Audio play error:", e));
   };
 
-const handleRetake = async () => {
-  const updated = [...retakeUsed];
-  updated[currentPhotoIndex] = true;
-  setRetakeUsed(updated);
+  const handleRetake = async () => {
+    const updated = [...retakeUsed];
+    updated[currentPhotoIndex] = true;
+    setRetakeUsed(updated);
 
-  setCapturedImage(null);
-  setCameraReady(false);
-  setIsCountingDown(false);
+    setCapturedImage(null);
+    setCameraReady(false);
+    setIsCountingDown(false);
 
-  if (streamRef.current && videoRef.current) {
-    videoRef.current.srcObject = streamRef.current;
-    try {
-      await videoRef.current.play();
-      setCameraReady(true);
-    } catch (err: any) {
-      if (err.name !== "AbortError") console.error("Retake play error:", err);
+    if (streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      try {
+        await videoRef.current.play();
+        setCameraReady(true);
+      } catch (err: any) {
+        if (err.name !== "AbortError") console.error("Retake play error:", err);
+      }
+    } else startCamera();
+  };
+
+  // Tambahkan handler untuk perubahan kamera
+  const handleCameraChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCamera(e.target.value);
+    // Stop current stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
     }
-  } else startCamera();
-};
-
+    // Restart camera dengan device baru
+    await startCamera();
+  };
+  useEffect(() => {
+    if (selectedCamera) {
+      startCamera();
+    }
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [selectedCamera]);
 
   const handleContinue = () => onComplete();
 
   return (
     <div className="w-full max-w-xl mx-auto p-4 rounded-lg shadow-md">
+      {cameras.length > 1 && (
+        <div className="mb-4">
+          <select
+            value={selectedCamera}
+            onChange={handleCameraChange}
+            className="w-full p-2 border rounded-md bg-white"
+          >
+            {cameras.map(camera => (
+              <option key={camera.deviceId} value={camera.deviceId}>
+                {camera.label || `Camera ${cameras.indexOf(camera) + 1}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="relative overflow-hidden rounded-lg bg-black shadow-lg">
         {cameraError ? (
           <div className="flex flex-col items-center justify-center h-64 bg-red-50 p-4 text-center">
