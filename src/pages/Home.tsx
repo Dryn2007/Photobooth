@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Layout/Header";
 import QRCodeScanner from "../components/QRCode/QRCodeScanner";
 
+
 const Home: React.FC = () => {
   const navigate = useNavigate();
 
@@ -12,12 +13,7 @@ const Home: React.FC = () => {
 
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="max-w-4xl w-full  rounded-lg">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold mb-4 text-blue-600">
-              Selamat Datang di PhotoBooth
-            </h1>
-          </div>
-
+       
           <div className="grid md:grid-cols-2 gap-8 mb-12">
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="mt-6 text-center">
@@ -71,7 +67,7 @@ const Home: React.FC = () => {
       <footer className="bg-gray-800 text-white py-4">
         <div className="container mx-auto px-4 text-center">
           <p>
-            © {new Date().getFullYear()} DBI PhotoBooth. Hak cipta dilindungi.
+            © {new Date().getFullYear()} P5 PhotoBooth. Hak cipta dilindungi.  
           </p>
         </div>
       </footer>

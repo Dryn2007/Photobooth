@@ -34,8 +34,17 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         setCameras(videoDevices);
-        if (videoDevices.length > 0) {
-          setSelectedCamera(videoDevices[0].deviceId);
+
+        // 🔎 Cari OBS Virtual Camera terlebih dahulu
+        const obsCamera = videoDevices.find((device) =>
+          device.label.includes("OBS")
+        );
+
+        // ✅ Jika ditemukan, set sebagai kamera default
+        if (obsCamera) {
+          setSelectedCamera(obsCamera.deviceId);
+        } else if (videoDevices.length > 0) {
+          setSelectedCamera(videoDevices[0].deviceId); // Jika tidak ada OBS, ambil yang pertama
         }
       } catch (err) {
         console.error("Error getting cameras:", err);
@@ -46,52 +55,102 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
 
   useEffect(() => {
+    if (!selectedCamera) return;
+
     setCapturedImage(null);
     setIsCountingDown(false);
     setCameraReady(false);
 
-    if (streamRef.current && videoRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current
-        .play()
-        .then(() => setCameraReady(true))
-        .catch((err) => {
-          if (err.name !== "AbortError")
-            console.error("Play error on index change:", err);
-        });
-    } else {
-      startCamera();
-    }
-  }, [currentPhotoIndex]);
+    const run = async () => {
+      // Stop stream sebelumnya
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
 
-  const startCamera = async () => {
+      // Jika selectedCamera baru saja berubah, beri jeda 300ms
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      try {
+        const constraints = {
+          video: {
+            width: { ideal: 944 },
+            height: { ideal: 708 },
+            deviceId: selectedCamera ? { exact: selectedCamera } : undefined,
+          },
+        };
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = mediaStream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+
+          await new Promise((resolve, reject) => {
+            videoRef.current!.onloadedmetadata = () => resolve(null);
+            videoRef.current!.onerror = reject;
+          });
+
+          await videoRef.current.play();
+          setCameraReady(true);
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        setCameraError("Could not access camera. Please check permissions or camera availability.");
+      }
+    };
+
+    run();
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [currentPhotoIndex, selectedCamera]);
+
+
+  const startCamera = async (retryCount = 0) => {
     setCameraError(null);
+    setCameraReady(false);
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
     try {
       const constraints = {
         video: {
           width: { ideal: 944 },
           height: { ideal: 708 },
-          deviceId: selectedCamera ? { exact: selectedCamera } : undefined
+          deviceId: selectedCamera ? { exact: selectedCamera } : undefined,
         },
       };
+
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = mediaStream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play().catch((err) => {
-          if (err.name !== "AbortError")
-            console.error("Video play error:", err);
-        });
+        await videoRef.current.play();
         setCameraReady(true);
       }
     } catch (err) {
-      setCameraError(
-        "Could not access camera. Please ensure you have granted camera permissions."
-      );
       console.error("Camera error:", err);
+
+      if (retryCount < 2) {
+        console.warn(`Retrying camera... attempt ${retryCount + 1}`);
+        setTimeout(() => startCamera(retryCount + 1), 1500); // retry otomatis
+      } else {
+        setCameraError("Could not access camera. Please ensure you have granted camera permissions and OBS is running.");
+      }
     }
   };
+
+
+
   const startCountdown = () => setIsCountingDown(true);
 
   const capturePhoto = () => {
@@ -135,13 +194,8 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   // Tambahkan handler untuk perubahan kamera
   const handleCameraChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCamera(e.target.value);
-    // Stop current stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    // Restart camera dengan device baru
-    await startCamera();
+    const newCameraId = e.target.value;
+    setSelectedCamera(newCameraId);
   };
   useEffect(() => {
     if (selectedCamera) {
@@ -157,8 +211,8 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const handleContinue = () => onComplete();
 
   return (
-    <div className="w-full max-w-xl mx-auto p-4 rounded-lg shadow-md">
-      {cameras.length > 1 && (
+    <div className="w-[115dvh] h-full mx-auto p-4 rounded-lg shadow-md">
+      {/* {cameras.length > 1 && (
         <div className="mb-4">
           <select
             value={selectedCamera}
@@ -172,18 +226,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
             ))}
           </select>
         </div>
-      )}
+      )} */}
       <div className="relative overflow-hidden rounded-lg bg-black shadow-lg">
         {cameraError ? (
           <div className="flex flex-col items-center justify-center h-64 bg-red-50 p-4 text-center">
             <Camera size={48} className="text-red-500 mb-2" />
             <p className="text-red-700 mb-2">{cameraError}</p>
-            <button
-              onClick={startCamera}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              Retry
-            </button>
+            <p className="text-sm text-gray-500">Trying again automatically...</p>
           </div>
         ) : (
           <div className="relative w-full h-auto max-h-[80vh]">
@@ -192,17 +241,18 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
               <img
                 src={capturedImage}
                 alt="Captured photo"
-                className="w-auto  mx-auto object-contain"
+                className="w-full mx-auto object-contain"
               />
             ) : (
               <video
                 ref={videoRef}
-                className="w-auto  mx-auto object-contain"
+                className="w-full  mx-auto object-contain"
                 muted
                 playsInline
                 autoPlay
               />
             )}
+
             {isCountingDown && !capturedImage && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
                 <CountdownTimer seconds={1} onComplete={capturePhoto} />

@@ -6,26 +6,21 @@ import logo from "/images/logo.png";
 
 const Header: React.FC = () => {
   return (
-    <header className="bg-white shadow-sm p-2">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <img src={logo} alt="Logo" />
+    <header className="bg-white shadow-sm">
+      <div className="container mx-auto px-4 py-7 flex items-center">
+        <img src={logo} alt="Logo" className='w-12 mr-3' />
 
         <Link
           to="/"
-          className="flex items-center gap-2 text-xl font-bold text-blue-600"
+          className="flex items-center gap-2 text-2xl font-bold text-[#aa7247]"
         >
-          <span>DBI Photoboth</span>
+          <span>P5 Photoboth</span>
         </Link>
 
         <nav>
           <ul className="flex gap-6">
             <li>
-              <Link
-                to="/"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Home
-              </Link>
+            
             </li>
           </ul>
         </nav>
