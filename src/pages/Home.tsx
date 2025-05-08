@@ -64,7 +64,7 @@ const Home: React.FC = () => {
         </div>
       </main>
 
-      <footer className="bg-gray-800 text-white py-4">
+      <footer className="bg-blue-800 text-white py-4">
         <div className="container mx-auto px-4 text-center">
           <p>
             © {new Date().getFullYear()} P5 PhotoBooth. Hak cipta dilindungi.  
@@ -76,3 +76,4 @@ const Home: React.FC = () => {
 };
 
 export default Home;
+//fagagagagag test jiuinhiuhiubuibubuybubububu
