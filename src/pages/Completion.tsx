@@ -13,23 +13,15 @@ const Completion: React.FC = () => {
   const { photos, sessionId, resetSession, selectedFrame } = usePhotobooth();
   const navigate = useNavigate();
 
-  // If no session ID or no photos, redirect to home
-  // useEffect(() => {
-  //   if (!sessionId || photos.length === 0) {
-  //     navigate("/");
-  //   }
-  // }, [sessionId, photos, navigate]);
+  useEffect(() => {
+    if (!sessionId || photos.length === 0) {
+      navigate("/");
+    }
+  }, [sessionId, photos, navigate]);
 
   const photoStripRef = useRef<HTMLDivElement>(null);
 
-const handleDownload = async () => {
-  const node = photoStripRef.current;
-  if (!node) return;
-};
 
-  const handleShare = () => {
-    alert("Sharing functionality would be implemented here");
-  };
 
   const handleNewSession = () => {
     resetSession();
@@ -70,6 +62,14 @@ const handleDownload = async () => {
             </div>
 
            
+            <div className="text-center mt-8">
+              <button
+                onClick={handleNewSession}
+                className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
       </main>

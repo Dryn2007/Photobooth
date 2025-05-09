@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Camera } from "lucide-react";
+import { Camera, Check, RotateCcw } from "lucide-react";
 import CountdownTimer from "./CountdownTimer";
 import { usePhotobooth } from "../../context/PhotoboothContext";
+import { motion  } from "framer-motion";
+
 
 interface CameraCaptureProps {
   onCapture: (dataUrl: string) => void;
@@ -32,6 +34,19 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const [previewCountdown, setPreviewCountdown] = useState<number | null>(null);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previewIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const shutterAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewBeepAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  
+
+  useEffect(() => {
+    shutterAudioRef.current = new Audio("/sounds/camera-shutter.mp3");
+    shutterAudioRef.current.volume = 1;
+    shutterAudioRef.current.load();
+
+    previewBeepAudioRef.current = new Audio("/sounds/beep2.mp3");
+    previewBeepAudioRef.current.load();
+  }, []);
 
 
   useEffect(() => {
@@ -147,22 +162,30 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     capturedImageRef.current = dataUrl;
     onCapture(dataUrl);
 
-    const audio = new Audio("/sounds/camera-shutter.mp3");
-    audio.play().catch((e) => console.error("Audio play error:", e));
+    if (shutterAudioRef.current) {
+      shutterAudioRef.current.currentTime = 0;
+      shutterAudioRef.current.play().catch((e) => console.error("Audio play error:", e));
+    }
 
-    let secondsLeft = 7;
+
+    let secondsLeft = 10;
     setPreviewCountdown(secondsLeft);
 
     const interval = setInterval(() => {
       secondsLeft -= 1;
       setPreviewCountdown(secondsLeft);
+
+      if (previewBeepAudioRef.current) {
+        previewBeepAudioRef.current.currentTime = 0;
+        previewBeepAudioRef.current.play().catch(err => console.error("Preview beep error:", err));
+      }
     }, 1000);
 
     const timeout = setTimeout(() => {
       clearInterval(interval);
       setPreviewCountdown(null);
       handleContinue(); // Lanjut otomatis jika tidak ditekan tombol apa pun
-    }, 7000);
+    }, 10000);
 
     previewTimeoutRef.current = timeout;
     previewIntervalRef.current = interval;
@@ -277,27 +300,49 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
             </div>
           )}
 
-          {showRedFlash && (
-            <div className="absolute inset-0 bg-opacity-60 flex items-center justify-center z-30 animate-pulse">
-              <p className="text-white text-8xl font-bold animate-pulse">{redFlashText}</p>
-            </div>
-          )}
+            {showRedFlash && (
+              <div className={`absolute inset-0 flex items-center justify-center z-30 transition-all duration-700 ${redFlashText.includes("RETAKE") ? "bg-yellow-500 bg-opacity-80" :
+                  redFlashText.includes("SEKALI") ? "bg-red-700 bg-opacity-80" :
+                    "bg-black bg-opacity-70"
+                }`}>
+                <motion.p
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="text-white text-7xl font-extrabold text-center drop-shadow-lg"
+                >
+                  {redFlashText}
+                </motion.p>
+              </div>
+            )}
 
-          {capturedImage ? (
-            <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
-          ) : (
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              muted
-              playsInline
-              autoPlay
-            />
-          )}
+
+            <motion.div
+              key={capturedImage ? "photo" : "camera"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              {capturedImage ? (
+                <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+              ) : (
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover"
+                  muted
+                  playsInline
+                  autoPlay
+                />
+              )}
+            </motion.div>
+
 
           {isCountingDown && !capturedImage && (
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
-              <CountdownTimer seconds={1} onComplete={capturePhoto} />
+              <CountdownTimer seconds={5} onComplete={capturePhoto} />
             </div>
           )}
 
@@ -316,6 +361,58 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
               ))}
             </div>
           </div>
+
+            {/* Kontrol UI tombol ikon di tengah bawah */}
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-8 z-30">
+
+              {!isCountingDown && !capturedImage && cameraReady && (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.15 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  onClick={startCountdown}
+                  className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-xl transition-all duration-300"
+                >
+                  <Camera className="w-8 h-8" />
+                </motion.button>
+              )}
+
+              {capturedImage && (
+                <>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.05 }}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 }}
+                    onClick={handleRetake}
+                    className="flex items-center gap-2 bg-gradient-to-br from-yellow-400 to-yellow-600 text-black px-6 py-3 rounded-full shadow-xl text-lg font-semibold hover:shadow-2xl transition duration-300"
+                  >
+                    <RotateCcw className="w-6 h-6" />
+                  
+                  </motion.button>
+
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.15 }}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                    onClick={handleContinue}
+                    className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-xl transition-all duration-300"
+                  >
+                    <Check className="w-8 h-8" />
+                  </motion.button>
+                </>
+              )}
+            </div>
+
+
+
+
+
         </div>
       )}
     </div>

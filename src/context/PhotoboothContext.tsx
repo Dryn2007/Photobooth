@@ -77,15 +77,30 @@ export const PhotoboothProvider: React.FC<{ children: React.ReactNode }> = ({
   const [selectedFrame, setSelectedFrame] = useState<FrameType | null>(null);
 
   const validateQRCode = async (id: string): Promise<boolean> => {
-    const usedQRCodes = JSON.parse(localStorage.getItem("usedQRCodes") || "[]");
+    const usageKey = `qr-usage-${id}`;
+    const currentUsage = parseInt(localStorage.getItem(usageKey) || "0");
 
-    if (usedQRCodes.includes(id)) {
+    // Cek apakah ID mengandung kata 'VIP'
+    const isVIP = id.includes("007");
+    const isUnlimited = id.includes("UNLIMITED")
+
+ 
+
+    // Jika ID mengandung 'VIP', maka set maxUsage ke 2, jika tidak default ke 1
+    const maxUsage = isUnlimited ? Infinity : isVIP ? 2 : 1;
+
+    if (currentUsage >= maxUsage) {
       return false;
     }
 
-    localStorage.setItem("usedQRCodes", JSON.stringify([...usedQRCodes, id]));
+    // Simpan peningkatan penggunaan hanya jika valid
+    localStorage.setItem(usageKey, (currentUsage + 1).toString());
+
     return true;
   };
+
+
+
 
   const addPhoto = (dataUrl: string) => {
     const newPhoto = {
