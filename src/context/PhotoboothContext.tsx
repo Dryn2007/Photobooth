@@ -81,14 +81,22 @@ export const PhotoboothProvider: React.FC<{ children: React.ReactNode }> = ({
     const currentUsage = parseInt(localStorage.getItem(usageKey) || "0");
 
     // Cek apakah ID mengandung kata 'VIP'
-    const isVIP = id.includes("007");
-    const isUnlimited = id.includes("UNLIMITED")
+    const isPanitia = id.includes("P21");
+    const isWarga = id.includes("W21");
+    const isStaf = id.includes("S21");
+    const isUnlimited = id.includes("VVIP")
 
  
 
     // Jika ID mengandung 'VIP', maka set maxUsage ke 2, jika tidak default ke 1
-    const maxUsage = isUnlimited ? Infinity : isVIP ? 2 : 1;
-
+    const maxUsage = isUnlimited
+      ? Infinity
+      : isPanitia || isStaf
+        ? 2
+        : isWarga
+          ? 1
+          : 1; 
+          
     if (currentUsage >= maxUsage) {
       return false;
     }

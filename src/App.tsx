@@ -6,6 +6,10 @@ import ScanQR from './pages/ScanQR';
 import PhotoSession from './pages/PhotoSession';
 import Completion from './pages/Completion';
 import NotFound from './pages/NotFound';
+import UnlimitedSplash from './pages/UnlimitedSplash';
+import PanitiaSplash from './pages/PanitiaSplash';
+import SiswaSplash from './pages/SiswaSplash';
+import StafSplash from './pages/StafSplash';
 
 function App() {
   return (
@@ -18,6 +22,10 @@ function App() {
             <Route path="/session" element={<PhotoSession />} />
             <Route path="/complete" element={<Completion />} />
             <Route path="*" element={<NotFound />} />
+            <Route path="/splash/unlimited" element={<UnlimitedSplash />} />
+            <Route path="/splash/siswa" element={<SiswaSplash />} />
+            <Route path="/splash/panitia" element={<PanitiaSplash />} />
+            <Route path="/splash/staf" element={<StafSplash />} />
           </Routes>
         </div>
       </Router>

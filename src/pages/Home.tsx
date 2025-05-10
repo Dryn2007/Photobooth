@@ -12,7 +12,7 @@ const Home: React.FC = () => {
       <Header />
 
       <main className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="max-w-4xl w-full  rounded-lg">
+        <div className="max-w-6xl w-full  rounded-lg">
        
           <div className="grid md:grid-cols-2 gap-8 mb-12">
             <div className="bg-white rounded-lg shadow-md p-6">
@@ -24,7 +24,7 @@ const Home: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="rounded-lg p-6 mb-5 max-h-[400px]">
+                <div className="rounded-lg p-6 mb-5 h-[520px]">
                   <QRCodeScanner />
                 </div>
               </div>
@@ -34,9 +34,9 @@ const Home: React.FC = () => {
               <h2 className="text-2xl font-semibold mb-4">Cara Kerja</h2>
               <ol className="space-y-4">
                 {[
-                  "Pilih Bingkai Anda",
-                  "Pindai & Mulai",
-                  "Ambil 4 Foto",
+                  "Scan Barcode Anda",
+                  "Masuk Ke Sesi Foto",
+                  "Pilih Template Strip",
                   "Dapatkan Foto Anda",
                 ].map((text, index) => (
                   <li key={index} className="flex items-start gap-3">
@@ -48,10 +48,11 @@ const Home: React.FC = () => {
                       <p className="text-blue-100">
                         {
                           [
-                            "Pilih dari koleksi bingkai cantik kami",
-                            "Pindai kode QR untuk memulai sesi foto Anda",
-                            "Abadikan 4 foto berbeda dengan opsi pengambilan ulang",
-                            "Strip foto Anda akan otomatis terunduh",
+                            "Arahkan Tiket Ke Kamera",
+                            "Pose Dengan Gaya Andalan!",
+                            "3 Desain Menarik Untuk Event Kali Ini!",
+                            "Tekan Tombol Unduh Untuk Mendapatkan Soft-File, Hard-file Akan Diberikan Setelah Print-Out Selesai ",
+                            
                           ][index]
                         }
                       </p>
@@ -64,7 +65,7 @@ const Home: React.FC = () => {
         </div>
       </main>
 
-      <footer className="bg-blue-800 text-white py-4">
+      <footer className="bg-[#fbb635] text-black py-4">
         <div className="container mx-auto px-4 text-center">
           <p>
             © {new Date().getFullYear()} P5 PhotoBooth. Hak cipta dilindungi.  

@@ -17,11 +17,11 @@ const PhotoSession: React.FC = () => {
   const navigate = useNavigate();
 
   // If no session ID, redirect to home
-  useEffect(() => {
-    if (!sessionId) {
-      navigate('/');
-    }
-  }, [sessionId, navigate]);
+  // useEffect(() => {
+  //   if (!sessionId) {
+  //     navigate('/');
+  //   }
+  // }, [sessionId, navigate]);
 
   const handlePhotoCapture = (dataUrl: string) => {
     if (photos.length > currentPhotoIndex) {

@@ -349,7 +349,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
           <div className="absolute top-0 left-0 w-full z-30 px-6 py-2">
             <div className="relative h-2 bg-gray-300 rounded">
               <div
-                className="absolute top-0 left-0 h-full bg-pink-500 rounded transition-all duration-500"
+                  className="absolute top-0 left-0 h-full bg-orange-400 rounded transition-all duration-500"
                 style={{ width: `${((currentPhotoIndex + 1) / 6) * 100}%` }}
               />
               {Array.from({ length: 6 }, (_, i) => (
