@@ -34,6 +34,8 @@ interface PhotoboothContextType {
   selectedFrame: FrameType | null;
   setSelectedFrame: React.Dispatch<React.SetStateAction<FrameType | null>>;
   frames: FrameType[];
+  livePhotoVideoUrls: string[]; // array untuk simpan 6 video
+  setLivePhotoVideoUrls: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 const AVAILABLE_FRAMES: FrameType[] = [
@@ -136,12 +138,16 @@ export const PhotoboothProvider: React.FC<{ children: React.ReactNode }> = ({
     setQrCode(null);
     setSelectedFrame(null);
   };
+  const [livePhotoVideoUrls, setLivePhotoVideoUrls] = useState<string[]>([]);
 
   return (
+    
     <PhotoboothContext.Provider
       value={{
         currentPhotoIndex,
         setCurrentPhotoIndex,
+        livePhotoVideoUrls,
+        setLivePhotoVideoUrls,
         photos,
         addPhoto,
         replacePhoto,

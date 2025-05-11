@@ -5,7 +5,7 @@ import QRCodeScanner from "../components/QRCode/QRCodeScanner";
 
 
 const Home: React.FC = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Removed as it is not used
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -68,7 +68,7 @@ const Home: React.FC = () => {
       <footer className="bg-[#fbb635] text-black py-4">
         <div className="container mx-auto px-4 text-center">
           <p>
-            © {new Date().getFullYear()} P5 PhotoBooth. Hak cipta dilindungi.  
+            © {new Date().getFullYear()} P5 PhotoBooth. By DBI PRODUCTION.  
           </p>
         </div>
       </footer>

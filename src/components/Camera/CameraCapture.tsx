@@ -37,6 +37,40 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewBeepAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const { setLivePhotoVideoUrls } = usePhotobooth();
+
+
+
+
+  const startRecording = () => {
+    recordedChunksRef.current = [];
+    if (streamRef.current) {
+      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        setLivePhotoVideoUrls((prev) => [...prev, url]);
+
+      };
+
+      mediaRecorder.start();
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
   
 
   useEffect(() => {
@@ -129,8 +163,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     startCamera();
   }, [currentPhotoIndex, selectedCamera]);
 
-  const startCountdown = () => setIsCountingDown(true);
-
+  const startCountdown = () => {
+    setIsCountingDown(true)
+    setTimeout(() => {
+      
+      startRecording(); 
+    }, 2000);
+  }
   const stopPreviewCountdown = () => {
     if (previewTimeoutRef.current) {
       clearTimeout(previewTimeoutRef.current);
@@ -148,6 +187,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
 
   const capturePhoto = () => {
+    stopRecording();
     if (!videoRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -293,6 +333,8 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         </div>
       ) : (
         <div className="relative w-full h-full">
+  
+
 
           {previewCountdown !== null && (
             <div className="absolute bottom-6 left-6 bg-black bg-opacity-60 text-white text-3xl font-bold px-4 py-2 rounded z-30">
