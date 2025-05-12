@@ -1,9 +1,8 @@
-import { Camera } from "lucide-react";
 import html2canvas from "html2canvas";
 import React, { useRef, useEffect, forwardRef, useState } from "react";
 import gifshot from "gifshot";
 import { usePhotobooth } from "../../context/PhotoboothContext";
-
+import FFmpeg from '@ffmpeg/ffmpeg';
 interface Photo {
   id: number;
   dataUrl: string;
@@ -21,7 +20,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
     const { sessionId } = usePhotobooth();
     const gifBackground = "/images/gif-frame.png";
     const { livePhotoVideoUrls } = usePhotobooth();
-
+    const { createFFmpeg, fetchFile } = FFmpeg;
 
     const backgroundOptions = [
       "/images/photo.png",
@@ -98,7 +97,6 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
       }
     };
 
-
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async () => {
@@ -143,7 +141,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
       //   window.location.reload();
       // }, 500);
 
-      
+
     };
 
     useEffect(() => {
@@ -173,7 +171,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
               setShowVideo(true);
               video.play();
             }
-          }, 2000); // 2 detik tampilin foto
+          }, 5000); // 2 detik tampilin foto
         };
 
         video.addEventListener("ended", handleEnded);
@@ -294,7 +292,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
             {loading ? (
               <div className="flex flex-col justify-center items-center bg-gray-200 rounded-lg w-[925px] h-[620px]">
                 <p>Sabar GIF kamu lagi loading</p>
-                
+
                 <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 border-solid border-gray-800 rounded-full" />
               </div>
             ) : (
@@ -312,7 +310,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                       <img
                         src={previewGif}
                         alt="GIF Preview"
-                          className="w-full h-full shadow-2xl"
+                        className="w-full h-full shadow-2xl"
                       />
 
                       {/* Overlay frame di atas GIF */}
@@ -326,16 +324,18 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                     <div className="w-full flex items-center   mb-2 mt-4">
                       <button
                         onClick={handleDownload}
-                          className="px-6 py-2 mx-2 bg-pink-600 text-white font-semibold rounded-xl shadow-md hover:bg-white hover:text-black hover:z-50 transition duration-300"
+                        className="px-6 py-2 mx-2 bg-pink-600 text-white font-semibold rounded-xl shadow-md hover:bg-white hover:text-black hover:z-50 transition duration-300"
                       >
                         Download Foto & GIF
                       </button>
-                       
+
+
+
+
 
                       <p className="text-white">Setelah Download Halaman Akan Kembali Ke Awal </p>
                     </div>
 
-                     
                   </div>
                 </div>
               )
