@@ -15,11 +15,11 @@ const Completion: React.FC = () => {
   const { photos, sessionId, resetSession, selectedFrame } = usePhotobooth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!sessionId || photos.length === 0) {
-      navigate("/");
-    }
-  }, [sessionId, photos, navigate]);
+  // useEffect(() => {
+  //   if (!sessionId || photos.length === 0) {
+  //     navigate("/");
+  //   }
+  // }, [sessionId, photos, navigate]);
 
   const photoStripRef = useRef<HTMLDivElement>(null);
 

@@ -98,7 +98,11 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
       }
     };
 
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
     const handleDownload = async () => {
+      setIsDownloading(true);
       // Gunakan sessionId untuk menamai file
       const safeId = sessionId?.replace(/[^\w\-]/g, "_") || "photo-strip";
 
@@ -133,9 +137,11 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
 
       if (onDownloadComplete) onDownloadComplete();
 
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      setIsDownloading(false);
+
+      // setTimeout(() => {
+      //   window.location.reload();
+      // }, 500);
 
       
     };
@@ -145,6 +151,59 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
         generateGif();
       }
     }, [photos]);
+
+    const LivePhotoWithFallback: React.FC<{ videoUrl: string; fallbackImg: string }> = ({
+      videoUrl,
+      fallbackImg,
+    }) => {
+      const [showVideo, setShowVideo] = useState(true);
+      const videoRef = useRef<HTMLVideoElement | null>(null);
+      const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+      useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const handleEnded = () => {
+          setShowVideo(false);
+
+          timeoutRef.current = setTimeout(() => {
+            if (video) {
+              video.currentTime = 0; // RESET ke awal
+              setShowVideo(true);
+              video.play();
+            }
+          }, 2000); // 2 detik tampilin foto
+        };
+
+        video.addEventListener("ended", handleEnded);
+        video.play();
+
+        return () => {
+          video.removeEventListener("ended", handleEnded);
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+      }, []);
+
+      return showVideo ? (
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          autoPlay
+          muted
+          playsInline
+          poster={fallbackImg}
+          onCanPlay={() => videoRef.current?.play()}
+          className="max-w-full max-h-full rounded relative top-[100px]"
+        />
+      ) : (
+        <img
+          src={fallbackImg}
+          alt="Fallback"
+          className="max-w-full max-h-full rounded relative top-[100px]"
+        />
+      );
+    };
 
     return (
       <div className="flex justify-center">
@@ -167,15 +226,23 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
               />
               {photos.length > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center z-0 p-4">
-                  <div className="grid grid-cols-2 gap-y-[27px] gap-x-[30px] mr-[0px] ml-[0px] -mt-[5px] -mb-[1.7px]">
-                    {photos.map((photo) => (
-                      <div key={photo.id}>
-                        <img
-                          src={photo.dataUrl}
-                          alt={`Photo ${photo.id + 1}`}
-                          crossOrigin="anonymous"
-                          className="object-contain relative -bottom-[100px] max-w-full max-h-full"
-                        />
+                  <div className="grid grid-cols-2 gap-y-[23px] gap-x-[30px] mr-[0px] ml-[0px] -mt-[5px] -mb-[1.7px]">
+                    {photos.map((photo, index) => (
+                      <div key={photo.id} className="relative w-full h-full flex items-center justify-center">
+                        {isDownloading || !livePhotoVideoUrls[index] ? (
+                          <img
+                            src={photo.dataUrl}
+                            alt={`Photo ${photo.id + 1}`}
+                            crossOrigin="anonymous"
+                            className="object-contain relative -bottom-[100px] max-w-full max-h-full"
+                          />
+                        ) : (
+                          <LivePhotoWithFallback
+                            videoUrl={livePhotoVideoUrls[index]}
+                            fallbackImg={photo.dataUrl}
+                          />
+                        )}
+
                       </div>
                     ))}
                   </div>
@@ -212,20 +279,6 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                 →
               </button>
             </div>
-            <div className="photostrip grid grid-cols-2">
-              {photos.map((_, index) => (
-                <div key={index} className="photo-item">
-                  {livePhotoVideoUrls[index] && (
-                    <video
-                      src={livePhotoVideoUrls[index]}
-                      autoPlay
-                      loop
-                      className="max-w-xs mb-2 rounded"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="flex flex-col justify-center">
@@ -237,11 +290,6 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                 Terima kasih telah menggunakan PhotoBooth kami. Tunggu Kami di Acara Berikutnya
               </p>
             </div>
-
-       
-
-
-
             {/* Kanan: GIF */}
             {loading ? (
               <div className="flex flex-col justify-center items-center bg-gray-200 rounded-lg w-[925px] h-[620px]">
@@ -251,7 +299,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
               </div>
             ) : (
               previewGif && (
-                <div className="flex justify-center w-full bg-pink-500 p-2 rounded-2xl">
+                <div className="flex justify-center w-full p-2 rounded-2xl">
                   <div className="flex flex-col w-full h-auto items-center justify-between">
                     <div
                       className="relative"
@@ -264,24 +312,26 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                       <img
                         src={previewGif}
                         alt="GIF Preview"
-                        className="w-full h-full rounded-xl"
+                          className="w-full h-full shadow-2xl"
                       />
 
                       {/* Overlay frame di atas GIF */}
                       <img
                         src="/images/gif-frame.png"
                         alt="GIF Overlay Frame"
-                        className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10 rounded-xl"
+                        className="absolute inset-0 w-full h-full  object-cover pointer-events-none z-10"
                       />
                     </div>
 
                     <div className="w-full flex items-center   mb-2 mt-4">
                       <button
                         onClick={handleDownload}
-                        className="px-6 py-2 mx-2 bg-white text-black font-semibold rounded-xl shadow-md hover:bg-pink-600 hover:text-white transition duration-300"
+                          className="px-6 py-2 mx-2 bg-pink-600 text-white font-semibold rounded-xl shadow-md hover:bg-white hover:text-black hover:z-50 transition duration-300"
                       >
                         Download Foto & GIF
                       </button>
+                       
+
                       <p className="text-white">Setelah Download Halaman Akan Kembali Ke Awal </p>
                     </div>
 
