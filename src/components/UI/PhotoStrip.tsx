@@ -150,6 +150,100 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
       }
     }, [photos]);
 
+    const handleDownloadLiveVideo = async () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1080;
+        canvas.height = 1620;
+        const ctx = canvas.getContext("2d")!;
+
+        const frame = new Image();
+        frame.crossOrigin = "anonymous";
+        frame.src = backgroundOptions[selectedBackgroundIndex];
+        await frame.decode();
+
+        const videoElements = await Promise.all(
+          livePhotoVideoUrls.map((url) => {
+            return new Promise<HTMLVideoElement>((resolve) => {
+              const video = document.createElement("video");
+              video.src = url;
+              video.crossOrigin = "anonymous";
+              video.muted = true;
+              video.playsInline = true;
+              video.preload = "auto";
+              video.onloadeddata = () => resolve(video);
+            });
+          })
+        );
+
+        const duration = 3; // seconds
+        const fps = 60;
+        const totalFrames = duration * fps;
+        const frames: Uint8Array[] = [];
+
+        // Initialize FFmpeg
+        const ffmpeg = createFFmpeg({ log: true });
+        await ffmpeg.load();
+
+        for (let i = 0; i < totalFrames; i++) {
+          const currentTime = (i / fps);
+
+          // Seek videos to the current time and wait for seeked
+          await Promise.all(videoElements.map((video) => {
+            return new Promise<void>((resolve) => {
+              const onSeeked = () => {
+                video.removeEventListener("seeked", onSeeked);
+                resolve();
+              };
+              video.addEventListener("seeked", onSeeked);
+              video.currentTime = currentTime % video.duration;
+            });
+          }));
+
+          // Draw videos on canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          videoElements.forEach((video, index) => {
+            const x = (index % 2) * 540;
+            const y = Math.floor(index / 2) * 540;
+            ctx.drawImage(video, x, y, 540, 540);
+          });
+
+          // Draw overlay
+          ctx.drawImage(frame, 0, 0, 1080, 1620);
+
+          const blob = await new Promise<Blob>((res) =>
+            canvas.toBlob((b) => b && res(b), "image/png")
+          );
+          frames.push(new Uint8Array(await blob!.arrayBuffer()));
+        }
+
+        // Write frames to FFmpeg
+        for (let i = 0; i < frames.length; i++) {
+          ffmpeg.FS("writeFile", `frame_${String(i).padStart(3, "0")}.png`, frames[i]);
+        }
+
+        // Create MP4
+        await ffmpeg.run(
+          "-framerate", String(fps),
+          "-i", "frame_%03d.png",
+          "-c:v", "libx264",
+          "-pix_fmt", "yuv420p",
+          "output.mp4"
+        );
+
+        const data = ffmpeg.FS("readFile", "output.mp4");
+        const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${sessionId || "photo-strip"}-live-video.mp4`;
+        link.click();
+      } catch (err) {
+        console.error("Gagal membuat video live photo:", err);
+      }
+    };
+
+
+
     const LivePhotoWithFallback: React.FC<{ videoUrl: string; fallbackImg: string }> = ({
       videoUrl,
       fallbackImg,
@@ -202,6 +296,9 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
         />
       );
     };
+
+   
+
 
     return (
       <div className="flex justify-center">
@@ -276,8 +373,19 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
               >
                 →
               </button>
+
+              <button
+                onClick={handleDownloadLiveVideo}
+                className="px-6 py-2 mx-2 bg-blue-600 text-white font-semibold rounded-xl shadow-md hover:bg-white hover:text-black transition duration-300"
+              >
+                Download Live Photo Video (MP4/WebM)
+              </button>
+
             </div>
           </div>
+
+    
+
 
           <div className="flex flex-col justify-center">
             <div className="text-center mb-5">
