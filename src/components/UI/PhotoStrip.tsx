@@ -18,6 +18,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
     const internalRef = useRef<HTMLDivElement | null>(null);
     const [previewGif, setPreviewGif] = useState<string | null>(null);
     const { sessionId } = usePhotobooth();
+    const [liveVideoPreview, setLiveVideoPreview] = useState<string | null>(null);
     const gifBackground = "/images/gif-frame.png";
     const { livePhotoVideoUrls } = usePhotobooth();
     const { createFFmpeg, fetchFile } = FFmpeg;
@@ -152,9 +153,10 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
 
     const handleDownloadLiveVideo = async () => {
       try {
+        // Setup canvas dengan lebar genap (840) dan tinggi tetap (1240)
         const canvas = document.createElement("canvas");
-        canvas.width = 1080;
-        canvas.height = 1620;
+        canvas.width = 840;
+        canvas.height = 1240;
         const ctx = canvas.getContext("2d")!;
 
         const frame = new Image();
@@ -177,18 +179,25 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
         );
 
         const duration = 3; // seconds
-        const fps = 60;
+        const fps = 30;
         const totalFrames = duration * fps;
         const frames: Uint8Array[] = [];
 
-        // Initialize FFmpeg
         const ffmpeg = createFFmpeg({ log: true });
         await ffmpeg.load();
+
+        const slots = [
+          { x: 35, y: 380, width: 360, height: 260 },
+          { x: 35, y: 650, width: 360, height: 260 },
+          { x: 35, y: 920, width: 360, height: 260 },
+          { x: 448, y: 380, width: 360, height: 260 },
+          { x: 448, y: 650, width: 360, height: 260 },
+          { x: 448, y: 920, width: 360, height: 260 },
+        ];
 
         for (let i = 0; i < totalFrames; i++) {
           const currentTime = (i / fps);
 
-          // Seek videos to the current time and wait for seeked
           await Promise.all(videoElements.map((video) => {
             return new Promise<void>((resolve) => {
               const onSeeked = () => {
@@ -200,16 +209,14 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
             });
           }));
 
-          // Draw videos on canvas
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+
           videoElements.forEach((video, index) => {
-            const x = (index % 2) * 540;
-            const y = Math.floor(index / 2) * 540;
-            ctx.drawImage(video, x, y, 540, 540);
+            const { x, y, width, height } = slots[index];
+            ctx.drawImage(video, x, y, width, height);
           });
 
-          // Draw overlay
-          ctx.drawImage(frame, 0, 0, 1080, 1620);
+          ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
 
           const blob = await new Promise<Blob>((res) =>
             canvas.toBlob((b) => b && res(b), "image/png")
@@ -217,12 +224,10 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
           frames.push(new Uint8Array(await blob!.arrayBuffer()));
         }
 
-        // Write frames to FFmpeg
         for (let i = 0; i < frames.length; i++) {
           ffmpeg.FS("writeFile", `frame_${String(i).padStart(3, "0")}.png`, frames[i]);
         }
 
-        // Create MP4
         await ffmpeg.run(
           "-framerate", String(fps),
           "-i", "frame_%03d.png",
@@ -233,14 +238,21 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
 
         const data = ffmpeg.FS("readFile", "output.mp4");
         const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
+
+        // Tampilkan preview tanpa download
+        setLiveVideoPreview(url);
         const link = document.createElement("a");
-        link.href = url;
-        link.download = `${sessionId || "photo-strip"}-live-video.mp4`;
-        link.click();
+link.href = url;
+link.download = `${sessionId || "photo-strip"}-live-video.mp4`;
+link.click();
+
+
       } catch (err) {
         console.error("Gagal membuat video live photo:", err);
       }
     };
+
+
 
 
 
@@ -344,6 +356,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                 </div>
               )}
             </div>
+            
 
             {/* Tombol panah */}
             <div className="flex items-center justify-center mt-6 space-x-4">
@@ -380,6 +393,8 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
               >
                 Download Live Photo Video (MP4/WebM)
               </button>
+        
+
 
             </div>
           </div>
@@ -429,6 +444,8 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                       />
                     </div>
 
+                    
+
                     <div className="w-full flex items-center   mb-2 mt-4">
                       <button
                         onClick={handleDownload}
@@ -447,6 +464,19 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
                   </div>
                 </div>
               )
+            )}
+
+            {liveVideoPreview && (
+              <div className="mt-5">
+                <h2 className="text-lg font-semibold mb-2 text-center">Preview Live Photo Video:</h2>
+                <video
+                  src={liveVideoPreview}
+                  controls
+                  autoPlay
+                  loop
+                  className="border border-gray-300 rounded-md w-[420px] h-[620px]"
+                />
+              </div>
             )}
           </div>
         </div>
