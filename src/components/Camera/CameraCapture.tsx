@@ -164,12 +164,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   }, [currentPhotoIndex, selectedCamera]);
 
   const startCountdown = () => {
-    setIsCountingDown(true)
+    setIsCountingDown(true);
     setTimeout(() => {
-      
-      startRecording(); 
+      console.log("Buffering camera for 500ms...");
+      setTimeout(() => startRecording(), 100); // Tambahkan delay 500ms sebelum startRecording
     }, 2000);
-  }
+  };
+
   const stopPreviewCountdown = () => {
     if (previewTimeoutRef.current) {
       clearTimeout(previewTimeoutRef.current);

@@ -13,6 +13,7 @@ interface PhotoStripProps {
   onDownloadComplete?: () => void;
 }
 
+
 const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
   ({ photos, onDownloadComplete }, ref) => {
     const internalRef = useRef<HTMLDivElement | null>(null);
@@ -22,10 +23,14 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
     const gifBackground = "/images/gif-frame.png";
     const { livePhotoVideoUrls } = usePhotobooth();
     const { createFFmpeg, fetchFile } = FFmpeg;
+    const [loadingVideo, setLoadingVideo] = useState(false); // State untuk loading video
+    
+
 
     const backgroundOptions = [
       "/images/photo.png",
       "/images/photo2.png",
+      "/images/photo3.png",
       "/images/photo4.png",
     ];
     const [selectedBackgroundIndex, setSelectedBackgroundIndex] = useState<number>(0);
@@ -43,7 +48,7 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
       );
     };
 
-    const generateGif = async (safeId = "photo-strip") => {
+    const generateGif = async (safeId = "photo-strip"): Promise<string | null> => {
       try {
         setLoading(true);  // Mulai loading
 
@@ -73,87 +78,77 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
           })
         );
 
-        gifshot.createGIF(
-          {
-            images: compositeImages,
-            interval: 0.5,
-            gifWidth: 1920,
-            gifHeight: 1240,
-            numFrames: compositeImages.length,
-            sampleInterval: 10,
-          },
-          (obj) => {
-            if (!obj.error && obj.image) {
-              setPreviewGif(obj.image);
-            } else {
-              console.error("GIF generation error:", obj.error);
+        return new Promise((resolve) => {
+          gifshot.createGIF(
+            {
+              images: compositeImages,
+              interval: 0.5,
+              gifWidth: 1920,
+              gifHeight: 1240,
+              numFrames: compositeImages.length,
+              sampleInterval: 10,
+            },
+            (obj) => {
+              setLoading(false);
+              if (!obj.error && obj.image) {
+                setPreviewGif(obj.image);
+                resolve(obj.image);
+              } else {
+                console.error("GIF generation error:", obj.error);
+                resolve(null);
+              }
             }
-
-            setLoading(false);  // Selesai loading
-          }
-        );
+          );
+        });
       } catch (error) {
-        setLoading(false);  // Jika error, hentikan loading
+        setLoading(false);
         console.error("Failed to generate GIF:", error);
+        return null;
       }
     };
+
 
     const [isDownloading, setIsDownloading] = useState(false);
 
     const handleDownload = async () => {
       setIsDownloading(true);
-      // Gunakan sessionId untuk menamai file
+      setLoadingVideo(true); // Mulai loading video
       const safeId = sessionId?.replace(/[^\w\-]/g, "_") || "photo-strip";
 
-      // Pastikan GIF sudah dihasilkan
-      await generateGif(safeId);
+      let gifData = previewGif;
 
-      // Jika GIF sudah ada, buat tautan untuk mengunduh GIF
-      if (previewGif) {
+      if (!gifData) {
+        gifData = await generateGif(safeId);
+      }
+
+      if (gifData) {
         const gifLink = document.createElement("a");
-        gifLink.href = previewGif;
-        gifLink.download = `${safeId}.gif`;  // Menggunakan sessionId untuk nama file
+        gifLink.href = gifData;
+        gifLink.download = `${safeId}.gif`;
         gifLink.click();
       }
 
-      // Jika foto strip sudah ada, buat tautan untuk mengunduh foto strip
+
+      // 3. Download photo strip (png)
       if (internalRef.current) {
         try {
           const canvas = await html2canvas(internalRef.current, {
-            backgroundColor: null, // Agar transparansi tetap terjaga jika diperlukan
-            scale: 2, // Untuk meningkatkan kualitas gambar
+            backgroundColor: null,
+            scale: 2,
           });
 
           const dataUrl = canvas.toDataURL("image/png");
           const link = document.createElement("a");
           link.href = dataUrl;
-          link.download = `${safeId}-photo-strip.png`;  // Menggunakan sessionId untuk nama file
+          link.download = `${safeId}-photo-strip.png`;
           link.click();
         } catch (error) {
           console.error("Error generating photo strip image:", error);
         }
       }
 
-      if (onDownloadComplete) onDownloadComplete();
-
-      setIsDownloading(false);
-
-      // setTimeout(() => {
-      //   window.location.reload();
-      // }, 500);
-
-
-    };
-
-    useEffect(() => {
-      if (photos.length === 6) {
-        generateGif();
-      }
-    }, [photos]);
-
-    const handleDownloadLiveVideo = async () => {
+      // 4. Generate dan download live video
       try {
-        // Setup canvas dengan lebar genap (840) dan tinggi tetap (1240)
         const canvas = document.createElement("canvas");
         canvas.width = 840;
         canvas.height = 1240;
@@ -178,7 +173,8 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
           })
         );
 
-        const duration = 3; // seconds
+        const minDuration = Math.min(...videoElements.map((v) => v.duration));
+        const duration = Math.min(3, minDuration);
         const fps = 30;
         const totalFrames = duration * fps;
         const frames: Uint8Array[] = [];
@@ -196,24 +192,33 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
         ];
 
         for (let i = 0; i < totalFrames; i++) {
-          const currentTime = (i / fps);
+          const currentTime = Math.min(i / fps, duration - 0.05);
 
-          await Promise.all(videoElements.map((video) => {
-            return new Promise<void>((resolve) => {
-              const onSeeked = () => {
-                video.removeEventListener("seeked", onSeeked);
-                resolve();
+          for (let v of videoElements) {
+            await new Promise<void>((resolve) => {
+              const seekHandler = () => {
+                // Tambahkan delay pendek setelah seek
+                setTimeout(resolve, 100);
               };
-              video.addEventListener("seeked", onSeeked);
-              video.currentTime = currentTime % video.duration;
+
+              v.addEventListener("seeked", seekHandler, { once: true });
+
+              const safeTime = Math.min(currentTime, v.duration - 0.1);
+              try {
+                v.currentTime = safeTime;
+              } catch (err) {
+                console.warn("Failed to seek video:", err);
+                resolve(); // biar lanjut
+              }
             });
-          }));
+          }
+
 
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
           videoElements.forEach((video, index) => {
             const { x, y, width, height } = slots[index];
-            ctx.drawImage(video, x, y, width, height);
+            ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, x, y, width, height);
           });
 
           ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
@@ -229,8 +234,10 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
         }
 
         await ffmpeg.run(
-          "-framerate", String(fps),
+          "-framerate", "30",
           "-i", "frame_%03d.png",
+          "-r", "30",
+          "-g", "60",
           "-c:v", "libx264",
           "-pix_fmt", "yuv420p",
           "output.mp4"
@@ -238,19 +245,149 @@ const PhotoStrip = forwardRef<HTMLDivElement, PhotoStripProps>(
 
         const data = ffmpeg.FS("readFile", "output.mp4");
         const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
-
-        // Tampilkan preview tanpa download
         setLiveVideoPreview(url);
+
         const link = document.createElement("a");
-link.href = url;
-link.download = `${sessionId || "photo-strip"}-live-video.mp4`;
-link.click();
-
-
+        link.href = url;
+        link.download = `${safeId}-live-video.mp4`;
+        link.click();
       } catch (err) {
         console.error("Gagal membuat video live photo:", err);
       }
+
+      setLoadingVideo(false); // selesai render video
+      setIsDownloading(false);
+
+      if (onDownloadComplete) onDownloadComplete();
     };
+
+
+    useEffect(() => {
+      if (photos.length === 6) {
+        generateGif();
+      }
+    }, [photos]);
+
+//     const handleDownloadLiveVideo = async () => {
+//       try {
+//         // Setup canvas dengan lebar genap (840) dan tinggi tetap (1240)
+//         const canvas = document.createElement("canvas");
+//         canvas.width = 840;
+//         canvas.height = 1240;
+//         const ctx = canvas.getContext("2d")!;
+
+//         const frame = new Image();
+//         frame.crossOrigin = "anonymous";
+//         frame.src = backgroundOptions[selectedBackgroundIndex];
+//         await frame.decode();
+
+//         const videoElements = await Promise.all(
+//           livePhotoVideoUrls.map((url, index) => {
+//             return new Promise<HTMLVideoElement>((resolve) => {
+//               const video = document.createElement("video");
+//               video.src = url;
+//               video.crossOrigin = "anonymous";
+//               video.muted = true;
+//               video.playsInline = true;
+//               video.preload = "auto";
+//               video.onloadeddata = () => {
+//                 console.log(`Video ${index}: ${video.videoWidth}x${video.videoHeight}`);
+//                 resolve(video);
+//               };
+//             });
+//           })
+//         );
+
+//         const minDuration = Math.min(...videoElements.map(v => v.duration));
+//         const duration = Math.min(4, minDuration); // pilih durasi terpendek
+//         const fps = 30;
+//         const totalFrames = duration * fps;
+//         const frames: Uint8Array[] = [];
+
+//         const ffmpeg = createFFmpeg({ log: true });
+//         await ffmpeg.load();
+
+//         const slots = [
+//           { x: 35, y: 380, width: 360, height: 260 },
+//           { x: 35, y: 650, width: 360, height: 260 },
+//           { x: 35, y: 920, width: 360, height: 260 },
+//           { x: 448, y: 380, width: 360, height: 260 },
+//           { x: 448, y: 650, width: 360, height: 260 },
+//           { x: 448, y: 920, width: 360, height: 260 },
+//         ];
+
+//         for (let i = 0; i < totalFrames; i++) {
+//           const currentTime = (i / fps);
+
+//           await Promise.all(videoElements.map((video) => {
+//             return new Promise<void>((resolve) => {
+//               const onSeeked = () => {
+//                 if (video.readyState >= 2) {
+//                   setTimeout(resolve, 30); // beri delay agar frame benar-benar tampil
+//                 } else {
+//                   // Tunggu lagi jika belum siap
+//                   video.addEventListener("canplay", () => setTimeout(resolve, 30), { once: true });
+//                 }
+//               };
+
+//               video.addEventListener("seeked", onSeeked, { once: true });
+
+//               const currentTime = Math.min(i / fps, video.duration - 0.05); // hindari akhir
+//               video.currentTime = currentTime;
+//             });
+//           }));
+
+
+//           ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+//           videoElements.forEach((video, index) => {
+//             const { x, y, width, height } = slots[index];
+//             ctx.drawImage(
+//               video,
+//               0, 0, video.videoWidth, video.videoHeight, // ambil seluruh frame dari video
+//               x, y, width, height                        // gambar ke posisi slot canvas
+//             );
+//           });
+
+//           ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+
+//           const blob = await new Promise<Blob>((res) =>
+//             canvas.toBlob((b) => b && res(b), "image/png")
+//           );
+//           frames.push(new Uint8Array(await blob!.arrayBuffer()));
+//         }
+
+//         for (let i = 0; i < frames.length; i++) {
+//           ffmpeg.FS("writeFile", `frame_${String(i).padStart(3, "0")}.png`, frames[i]);
+//         }
+
+//         await ffmpeg.run(
+//           "-framerate", "30",
+//           "-i", "frame_%03d.png",
+//           "-r", "30",
+//           "-g", "60",              // ← tambahan
+//           "-c:v", "libx264",
+//           "-pix_fmt", "yuv420p",
+//           "output.mp4"
+//         );
+
+
+
+//         const data = ffmpeg.FS("readFile", "output.mp4");
+//         const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
+
+//         // Tampilkan preview tanpa download
+//         setLiveVideoPreview(url);
+//         const link = document.createElement("a");
+// link.href = url;
+// link.download = `${sessionId || "photo-strip"}-live-video.mp4`;
+// link.click();
+
+
+//       } catch (err) {
+//         console.error("Gagal membuat video live photo:", err);
+//       }
+//     };
 
 
 
@@ -277,7 +414,7 @@ link.click();
               setShowVideo(true);
               video.play();
             }
-          }, 5000); // 2 detik tampilin foto
+          }, 4000); //detik tampilin foto
         };
 
         video.addEventListener("ended", handleEnded);
@@ -386,22 +523,8 @@ link.click();
               >
                 →
               </button>
-
-              <button
-                onClick={handleDownloadLiveVideo}
-                className="px-6 py-2 mx-2 bg-blue-600 text-white font-semibold rounded-xl shadow-md hover:bg-white hover:text-black transition duration-300"
-              >
-                Download Live Photo Video (MP4/WebM)
-              </button>
-        
-
-
             </div>
           </div>
-
-    
-
-
           <div className="flex flex-col justify-center">
             <div className="text-center mb-5">
               <h1 className="text-3xl font-bold mb-2 text-orange-600">
@@ -443,21 +566,21 @@ link.click();
                         className="absolute inset-0 w-full h-full  object-cover pointer-events-none z-10"
                       />
                     </div>
-
-                    
+                      {(isDownloading || loadingVideo) && (
+                        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+                          <div className="text-center text-white">
+                            <div className="text-lg font-semibold mb-2">Sedang Mengunduh Foto, GIF & Video Live...</div>
+                            <div className="w-12 h-12 border-4 border-t-transparent border-white rounded-full animate-spin mx-auto" />
+                          </div>
+                        </div>
+                      )}
 
                     <div className="w-full flex items-center   mb-2 mt-4">
                       <button
                         onClick={handleDownload}
-                        className="px-6 py-2 mx-2 bg-pink-600 text-white font-semibold rounded-xl shadow-md hover:bg-white hover:text-black hover:z-50 transition duration-300"
-                      >
-                        Download Foto & GIF
-                      </button>
-
-
-
-
-
+                        className="bg-orange-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-orange-700 transition duration-300">
+                          Download
+                        </button>
                       <p className="text-white">Setelah Download Halaman Akan Kembali Ke Awal </p>
                     </div>
 
@@ -466,18 +589,6 @@ link.click();
               )
             )}
 
-            {liveVideoPreview && (
-              <div className="mt-5">
-                <h2 className="text-lg font-semibold mb-2 text-center">Preview Live Photo Video:</h2>
-                <video
-                  src={liveVideoPreview}
-                  controls
-                  autoPlay
-                  loop
-                  className="border border-gray-300 rounded-md w-[420px] h-[620px]"
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
